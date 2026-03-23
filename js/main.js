@@ -93,8 +93,9 @@ function drawParticles() {
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < 90) {
         const dark = document.documentElement.dataset.theme === 'dark';
-        const rgb  = dark ? '107,158,232' : '26,61,143';
-        const maxA = dark ? 0.45 : 0.18;
+        const rgb  = dark ? '140,190,255' : '26,61,143';
+        const maxA = dark ? 0.85 : 0.18;
+        ctx.lineWidth  = dark ? 1.2 : 0.5;
         ctx.strokeStyle = `rgba(${rgb},${(1 - dist / 90) * maxA})`;
         ctx.beginPath();
         ctx.moveTo(particles[i].x * W, particles[i].y * H);
@@ -108,8 +109,8 @@ function drawParticles() {
   const darkDots = document.documentElement.dataset.theme === 'dark';
   particles.forEach(p => {
     ctx.beginPath();
-    ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2);
-    ctx.fillStyle = darkDots ? 'rgba(107,158,232,0.75)' : 'rgba(26,61,143,0.45)';
+    ctx.arc(p.x * W, p.y * H, p.r * (darkDots ? 1.6 : 1), 0, Math.PI * 2);
+    ctx.fillStyle = darkDots ? 'rgba(140,190,255,0.95)' : 'rgba(26,61,143,0.45)';
     ctx.fill();
   });
 
