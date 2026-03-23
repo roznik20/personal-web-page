@@ -1,5 +1,6 @@
 // ── PARTICLE CANVAS ───────────────────────────────
 const canvas = document.getElementById('particleCanvas');
+if (canvas) {
 const ctx    = canvas.getContext('2d');
 
 let mouse = { x: -9999, y: -9999 }; // in canvas-local coords (0-1)
@@ -86,6 +87,7 @@ function drawParticles() {
   requestAnimationFrame(drawParticles);
 }
 drawParticles();
+} // end canvas guard
 
 // ── READING PROGRESS BAR ──────────────────────────
 const progressBar = document.getElementById('progress-bar');
