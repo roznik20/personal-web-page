@@ -89,8 +89,8 @@ if (canvas) {
 
     // ── Cursor wave packet
     // x position = mouse x, momentum = mapped from mouse y (top → high k)
-    const k_mouse = (0.5 - mouseNY) * 80;
-    const sigma_m = 0.07;
+    const k_mouse = (0.5 - mouseNY) * 200;
+    const sigma_m = 0.09;
 
     const N   = 500;
     const yC  = H * 0.54;
@@ -110,7 +110,7 @@ if (canvas) {
       // Mouse packet — fades in with mousePresence
       if (mousePresence > 0) {
         const dm   = x - mouseNX;
-        const envm = mousePresence * 0.65 * Math.exp(-dm * dm / (2 * sigma_m * sigma_m));
+        const envm = mousePresence * 1.4 * Math.exp(-dm * dm / (2 * sigma_m * sigma_m));
         re += envm * Math.cos(k_mouse * dm);
         im += envm * Math.sin(k_mouse * dm);
       }
@@ -163,17 +163,48 @@ if (canvas) {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Cursor position marker
+    // Cursor marker — vertical line + momentum arrow showing k direction
     if (mousePresence > 0) {
-      const cx = mouseNX * W;
+      const cx   = mouseNX * W;
+      const a    = mousePresence * (dark ? 0.55 : 0.35);
+
+      // Vertical dashed line across full height
       ctx.beginPath();
-      ctx.moveTo(cx, yC - amp * 0.12);
-      ctx.lineTo(cx, yC + amp * 0.12);
-      ctx.strokeStyle = `rgba(${rgb},${mousePresence * (dark ? 0.35 : 0.20)})`;
+      ctx.moveTo(cx, 0); ctx.lineTo(cx, H);
+      ctx.strokeStyle = `rgba(${rgb},${mousePresence * (dark ? 0.18 : 0.10)})`;
       ctx.lineWidth = 1;
-      ctx.setLineDash([2, 4]);
+      ctx.setLineDash([3, 5]);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Momentum arrow: direction and length encode k_mouse
+      const arrowLen = Math.min(Math.abs(k_mouse) * 0.18, amp * 0.7);
+      const dir      = k_mouse >= 0 ? -1 : 1; // up = positive k (rightward wave)
+      const ay       = yC + dir * arrowLen;
+      const headSize = Math.max(5, arrowLen * 0.18);
+
+      ctx.beginPath();
+      ctx.moveTo(cx, yC);
+      ctx.lineTo(cx, ay);
+      ctx.strokeStyle = `rgba(${rgb},${a})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Arrow head
+      ctx.beginPath();
+      ctx.moveTo(cx,            ay);
+      ctx.lineTo(cx - headSize, ay - dir * headSize);
+      ctx.lineTo(cx + headSize, ay - dir * headSize);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(${rgb},${a})`;
+      ctx.fill();
+
+      // Small k label next to arrow
+      const kVal = Math.round(k_mouse);
+      const fs2  = Math.max(9, W * 0.026);
+      ctx.font      = `${fs2}px 'Space Mono', monospace`;
+      ctx.fillStyle = `rgba(${rgb},${a * 0.8})`;
+      ctx.fillText(`k=${kVal > 0 ? '+' : ''}${kVal}`, cx + 8, ay);
     }
 
     // Labels
