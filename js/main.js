@@ -23,100 +23,137 @@ if (themeToggle) {
   });
 }
 
-// ── PARTICLE CANVAS ───────────────────────────────
+/* ── PARTICLE CANVAS (commented out — kept for reference) ─────────────
+const canvas_OLD = document.getElementById('particleCanvas');
+if (canvas_OLD) {
+  const ctx = canvas_OLD.getContext('2d');
+  let mouse = { x: -9999, y: -9999 };
+  function resizeCanvas() { const r = canvas_OLD.parentElement.getBoundingClientRect(); canvas_OLD.width = canvas_OLD.height = r.width; }
+  resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+  canvas_OLD.addEventListener('mousemove', e => { const r = canvas_OLD.getBoundingClientRect(); mouse.x=(e.clientX-r.left)/r.width; mouse.y=(e.clientY-r.top)/r.height; });
+  canvas_OLD.addEventListener('mouseleave', () => { mouse.x=-9999; mouse.y=-9999; });
+  const N=80; const particles=Array.from({length:N},()=>({x:Math.random(),y:Math.random(),vx:(Math.random()-0.5)*0.0004,vy:(Math.random()-0.5)*0.0004,r:Math.random()*1.5+0.5}));
+  function drawParticles(){const W=canvas_OLD.width,H=canvas_OLD.height;ctx.clearRect(0,0,W,H);particles.forEach(p=>{const dx=p.x-mouse.x,dy=p.y-mouse.y,d=Math.sqrt(dx*dx+dy*dy);if(d<0.18&&d>0){const f=(0.18-d)/0.18*0.00008;p.vx+=(dx/d)*f;p.vy+=(dy/d)*f;}p.vx*=0.995;p.vy*=0.995;p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=1;if(p.x>1)p.x=0;if(p.y<0)p.y=1;if(p.y>1)p.y=0;});for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){const dx=(particles[i].x-particles[j].x)*W,dy=(particles[i].y-particles[j].y)*H,d=Math.sqrt(dx*dx+dy*dy);if(d<90){ctx.strokeStyle=`rgba(26,61,143,${(1-d/90)*0.18})`;ctx.beginPath();ctx.moveTo(particles[i].x*W,particles[i].y*H);ctx.lineTo(particles[j].x*W,particles[j].y*H);ctx.stroke();}}particles.forEach(p=>{ctx.beginPath();ctx.arc(p.x*W,p.y*H,p.r,0,Math.PI*2);ctx.fillStyle='rgba(26,61,143,0.45)';ctx.fill();});requestAnimationFrame(drawParticles);}
+  drawParticles();
+}
+─────────────────────────────────────────────────────────────────────── */
+
+// ── WAVEFUNCTION CANVAS ────────────────────────────
+// Coherent state of a quantum harmonic oscillator:
+// ψ(x,t) = Gaussian envelope × oscillating phase
+// Shows Re(ψ), Im(ψ), and |ψ|² evolving over time.
 const canvas = document.getElementById('particleCanvas');
 if (canvas) {
-const ctx    = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d');
 
-let mouse = { x: -9999, y: -9999 }; // in canvas-local coords (0-1)
+  function resizeCanvas() {
+    const rect   = canvas.parentElement.getBoundingClientRect();
+    canvas.width  = rect.width;
+    canvas.height = rect.width;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
 
-function resizeCanvas() {
-  const rect   = canvas.parentElement.getBoundingClientRect();
-  canvas.width  = rect.width;
-  canvas.height = rect.width;
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
+  let startTime = null;
 
-canvas.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  mouse.x = (e.clientX - rect.left) / rect.width;
-  mouse.y = (e.clientY - rect.top)  / rect.height;
-});
-canvas.addEventListener('mouseleave', () => { mouse.x = -9999; mouse.y = -9999; });
+  function drawWavefunction(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const t = (timestamp - startTime) / 1000;
 
-const N = 80;
-const particles = Array.from({ length: N }, () => ({
-  x:  Math.random(),
-  y:  Math.random(),
-  vx: (Math.random() - 0.5) * 0.0004,
-  vy: (Math.random() - 0.5) * 0.0004,
-  r:  Math.random() * 1.5 + 0.5,
-}));
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
 
-function drawParticles() {
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
+    const dark = document.documentElement.dataset.theme === 'dark';
+    const rgb  = dark ? '140,190,255' : '26,61,143';
 
-  const REPEL_R = 0.18;
-  const REPEL_F = 0.00008;
+    // Coherent state parameters
+    const omega = 0.65;
+    const alpha = 0.30; // amplitude of oscillation
+    const x0    = 0.5 + alpha * Math.cos(omega * t);
+    const p0    = -alpha * omega * Math.sin(omega * t);
+    const sigma = 0.09;
+    const k0    = p0 * 42;
+    const phase_drift = t * 1.2;
 
-  particles.forEach(p => {
-    // mouse repulsion
-    const dx = p.x - mouse.x;
-    const dy = p.y - mouse.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < REPEL_R && dist > 0) {
-      const force = (REPEL_R - dist) / REPEL_R * REPEL_F;
-      p.vx += (dx / dist) * force;
-      p.vy += (dy / dist) * force;
+    const N   = 500;
+    const yC  = H * 0.54;
+    const amp = H * 0.34;
+
+    const reP = [], imP = [], pTop = [], pBot = [];
+
+    for (let i = 0; i <= N; i++) {
+      const x   = i / N;
+      const dx  = x - x0;
+      const env = Math.exp(-dx * dx / (2 * sigma * sigma));
+      const phi = k0 * dx - phase_drift;
+      const re  = env * Math.cos(phi);
+      const im  = env * Math.sin(phi);
+      const pr  = env * env;
+      const px  = x * W;
+      reP.push( [px, yC - re * amp] );
+      imP.push( [px, yC - im * amp] );
+      pTop.push([px, yC - pr * amp * 0.88]);
+      pBot.push([px, yC + pr * amp * 0.88]);
     }
 
-    // dampen velocity
-    p.vx *= 0.995;
-    p.vy *= 0.995;
+    const path = pts => {
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    };
 
-    p.x += p.vx;
-    p.y += p.vy;
-    if (p.x < 0) p.x = 1;
-    if (p.x > 1) p.x = 0;
-    if (p.y < 0) p.y = 1;
-    if (p.y > 1) p.y = 0;
-  });
+    // |ψ|² fill
+    ctx.beginPath();
+    pTop.forEach(([x,y], i) => i ? ctx.lineTo(x,y) : ctx.moveTo(x,y));
+    for (let i = pBot.length - 1; i >= 0; i--) ctx.lineTo(...pBot[i]);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${rgb},${dark ? 0.10 : 0.06})`;
+    ctx.fill();
 
-  // connections
-  ctx.lineWidth = 0.5;
-  for (let i = 0; i < N; i++) {
-    for (let j = i + 1; j < N; j++) {
-      const dx   = (particles[i].x - particles[j].x) * W;
-      const dy   = (particles[i].y - particles[j].y) * H;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 90) {
-        const dark = document.documentElement.dataset.theme === 'dark';
-        const rgb  = dark ? '140,190,255' : '26,61,143';
-        const maxA = dark ? 0.85 : 0.18;
-        ctx.lineWidth  = dark ? 1.2 : 0.5;
-        ctx.strokeStyle = `rgba(${rgb},${(1 - dist / 90) * maxA})`;
-        ctx.beginPath();
-        ctx.moveTo(particles[i].x * W, particles[i].y * H);
-        ctx.lineTo(particles[j].x * W, particles[j].y * H);
-        ctx.stroke();
-      }
-    }
+    // |ψ|² outline
+    path(pTop);
+    ctx.strokeStyle = `rgba(${rgb},${dark ? 0.28 : 0.14})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Im(ψ) — dashed
+    ctx.setLineDash([3, 6]);
+    path(imP);
+    ctx.strokeStyle = `rgba(${rgb},${dark ? 0.42 : 0.22})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Re(ψ) — solid
+    path(reP);
+    ctx.strokeStyle = `rgba(${rgb},${dark ? 0.88 : 0.62})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Baseline (x-axis)
+    ctx.beginPath();
+    ctx.moveTo(0, yC);
+    ctx.lineTo(W, yC);
+    ctx.strokeStyle = dark ? 'rgba(232,224,208,0.07)' : 'rgba(14,17,23,0.07)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Labels
+    const fs = Math.max(10, W * 0.030);
+    ctx.font = `${fs}px 'Space Mono', monospace`;
+
+    ctx.fillStyle = `rgba(${rgb},${dark ? 0.65 : 0.45})`;
+    ctx.fillText('Re(ψ)', W * 0.04, H * 0.08);
+
+    ctx.fillStyle = `rgba(${rgb},${dark ? 0.40 : 0.25})`;
+    ctx.fillText('Im(ψ)', W * 0.04, H * 0.14);
+
+    ctx.fillStyle = `rgba(${rgb},${dark ? 0.25 : 0.15})`;
+    ctx.fillText('|ψ|²',  W * 0.04, H * 0.20);
+
+    requestAnimationFrame(drawWavefunction);
   }
 
-  // dots
-  const darkDots = document.documentElement.dataset.theme === 'dark';
-  particles.forEach(p => {
-    ctx.beginPath();
-    ctx.arc(p.x * W, p.y * H, p.r * (darkDots ? 1.6 : 1), 0, Math.PI * 2);
-    ctx.fillStyle = darkDots ? 'rgba(140,190,255,0.95)' : 'rgba(26,61,143,0.45)';
-    ctx.fill();
-  });
-
-  requestAnimationFrame(drawParticles);
-}
-drawParticles();
+  requestAnimationFrame(drawWavefunction);
 } // end canvas guard
 
 // ── READING PROGRESS BAR ──────────────────────────
